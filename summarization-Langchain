@@ -1,0 +1,739 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "36030ba7-1c7c-44bc-b0dd-ee8c55c7a329",
+   "metadata": {},
+   "source": [
+    "### Project summarization"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "1d2f7e5d-6c94-4d64-9b85-57f1eb4a1273",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Note: you may need to restart the kernel to use updated packages.\n"
+     ]
+    }
+   ],
+   "source": [
+    "pip install -q \"langchain<1\""
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "11330c63-7a93-4282-a493-fc297d86aa68",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import os\n",
+    "import openai\n",
+    "openai.api_key = os.getenv(\"OPENAI_API_KEY\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "59c16dda-6f1c-4c7e-b812-fcac7ca1e283",
+   "metadata": {},
+   "source": [
+    "### Basic prompt"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "e29c889a-db09-4758-ae41-0f96fe835e53",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Makes a single call to the LLM; LLM has access to all the data at once\n",
+    "# Good for short text to be summarized in one shot\n",
+    "# Not flexible or scalable as method limited to model context length of ~4900 tokens\n",
+    "\n",
+    "from langchain.chat_models import ChatOpenAI\n",
+    "from langchain.schema import(\n",
+    "     AIMessage,\n",
+    "     HumanMessage,\n",
+    "     SystemMessage\n",
+    ")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "c17d1eee-faf6-4382-9629-6d44b28b4b52",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "text = \"\"\"\n",
+    "Surgeons externally attached a pig liver to a brain-dead human body and watched it successfully filter blood, a step toward eventually trying the technique in patients with liver failure.\n",
+    "\n",
+    "The University of Pennsylvania announced the novel experiment on Thursday, a different spin on animal-to-human organ transplants. In this case, the pig liver was used outside the donated body, not inside – a way to create a “bridge” to support failing livers by doing the organ’s blood-cleansing work externally, much like dialysis for failing kidneys.\n",
+    "First-of-its-kind heart transplant surgery in the US<br>epa09677906 A handout photo made available by the University of Maryland School of Medicine (UMSOM) that shows Surgeon Bartley P. Griffith, MD leading a team that operated a successful transplant of a genetically-modified pig heart in a first-of-its-kind surgery on a 57-year-old patient, David Bennett, with terminal heart disease, at the University of Maryland Medical Center in Baltimore, Maryland, USA, 07 January 2022 (Issued 10 January 2022). EPA/University of Maryland School of Medicine (UMSOM) / HANDOUT HANDOUT EDITORIAL USE ONLY/NO SALES\n",
+    "Man who received landmark pig heart transplant may have died of pig virus\n",
+    "Read more\n",
+    "\n",
+    "Animal-to-human transplants, called xenotransplants, have failed for decades because people’s immune systems rejected the foreign tissue. Now scientists are trying again with pigs whose organs have been genetically modified to be more humanlike.\n",
+    "In recent years, kidneys from genetically modified pigs have been temporarily transplanted into brain-dead donors to see how well they function, and two men received heart transplants from pigs although both died within months.\n",
+    "The US Food and Drug Administration is considering whether to allow a small number of Americans who need a new organ to volunteer for rigorous studies of either pig hearts or kidneys.\n",
+    "Some researchers also are looking to use pig livers. A liver has different complexities than kidneys and hearts: it filters blood, removes waste and produces substances needed for other bodily functions. About 10,000 people are currently on the US waiting list for a liver transplant.\n",
+    "In the Penn experiment, researchers attached a liver from a pig – one genetically modified by eGenesis – to a device made by OrganOx that usually helps preserve donated human livers before transplant.\n",
+    "The family of the deceased, whose organs were not suitable for donation, offered the body for the research. Machines kept the body’s blood circulating.\n",
+    "The experiment, conducted last month, filtered blood through the pig liver device for 72 hours. In a statement, the Penn team reported that the donor’s body remained stable and the pig liver showed no signs of damage.\n",
+    "There’s lots of work into developing liver dialysis-like machines, and experiments using pig livers were tried years ago – before today’s more advanced genetic techniques, said Dr Parsia Vagefi of UT Southwestern Medical Center, who was not involved in the new experiment but is closely watching xenotransplantation research.\n",
+    "“I applaud them for pushing this forward,” Vagefi said, calling this combination pig-device approach an intriguing step in efforts toward better care for liver failure.\n",
+    "\n",
+    "\"\"\"\n",
+    "\n",
+    "messages = [\n",
+    "    SystemMessage(content='You are an expert copywriter with expertize in summarizing documents'),\n",
+    "    HumanMessage(content=f'Please provide a short and concise summary of the following text:\\n TEXT: {text}')\n",
+    "]\n",
+    "\n",
+    "llm = ChatOpenAI(temperature=0, model_name='gpt-3.5-turbo')\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "6bd61099-083c-4955-8100-a9ecb35e6207",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "652"
+      ]
+     },
+     "execution_count": 5,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# Gives an approximation; real number a bit higher\n",
+    "llm.get_num_tokens(text)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "da583869-fa33-4ed2-87b7-7de2c4bdabb7",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "summary_output = llm(messages)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "f2f58b0e-9e14-42fa-8d78-acaafb2414ad",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Researchers at the University of Pennsylvania have successfully attached a pig liver to a brain-dead human body, allowing it to filter blood externally. This experiment is a new approach to animal-to-human organ transplants, using the pig liver outside the body to support failing livers. The pig liver, genetically modified to be more humanlike, was attached to a device that helps preserve donated human livers. The experiment lasted for 72 hours, with the donor's body remaining stable and the pig liver showing no signs of damage. This development is a significant step towards finding better care for liver failure.\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(summary_output.content)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "99ecac1e-8e3b-4c1f-8394-a9724e851b64",
+   "metadata": {},
+   "source": [
+    "### Summarizing using Prompt Templates"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "id": "bfe2da9c-846e-4673-833f-845bd1151ab9",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Note: you may need to restart the kernel to use updated packages.\n"
+     ]
+    }
+   ],
+   "source": [
+    "pip install -q \"langchain<1\""
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "id": "1c610576-fa91-4e89-915d-58b45cd7c0fc",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Method restricted to summarizing text that together with the summary has a length lower than \n",
+    "# Models max allowed number of tokens\n",
+    "\n",
+    "from langchain import PromptTemplate\n",
+    "from langchain.chains import LLMChain"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "id": "f0853ab1-707a-4086-a081-0de2e280f22e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "template = '''\n",
+    "Write a concise and short summary of the following text:\n",
+    "TEXT: `{text}`\n",
+    "Translate the summary to {language}.\n",
+    "'''\n",
+    "prompt = PromptTemplate(\n",
+    "    input_variables=['text', 'language'],\n",
+    "    template=template\n",
+    ")\n",
+    "\n",
+    "llm = ChatOpenAI(temperature=0, model_name='gpt-3.5-turbo')\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "id": "7941e17f-ed26-4328-8162-934a53874ab5",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "673"
+      ]
+     },
+     "execution_count": 11,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "llm.get_num_tokens(prompt.format(text=text, language=\"English\"))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "id": "2af4a53d-71e6-4f47-a389-373ab50ed404",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Chirurgen haben erfolgreich eine Schweineleber an einen hirntoten menschlichen Körper angebracht und beobachtet, wie sie erfolgreich Blut filtert. Dies ist ein Schritt in Richtung der Anwendung dieser Technik bei Patienten mit Leberversagen. Die Leber wurde außerhalb des Körpers verwendet, um eine \"Brücke\" zur Unterstützung von versagenden Lebern zu schaffen, ähnlich wie bei der Dialyse für versagende Nieren. Die Verwendung von genetisch modifizierten Schweineorganen für Transplantationen beim Menschen, sogenannte Xenotransplantationen, ist ein neuer Ansatz, da bisherige Versuche aufgrund von Abstoßungsreaktionen des Immunsystems gescheitert sind. Die US-amerikanische Food and Drug Administration erwägt, eine kleine Anzahl von Amerikanern, die ein neues Organ benötigen, für rigorose Studien zur Verfügung zu stellen. Die Verwendung von Schweinelebern könnte eine vielversprechende Option sein, da derzeit etwa 10.000 Menschen in den USA auf eine Lebertransplantation warten. In einem Experiment an der University of Pennsylvania wurde eine genetisch modifizierte Schweineleber an eine Vorrichtung angeschlossen, die normalerweise dazu dient, menschliche Spenderlebern vor der Transplantation zu erhalten. Das Experiment wurde erfolgreich durchgeführt, wobei die Leber 72 Stunden lang Blut filterte und keine Anzeichen von Schäden zeigte. Dieser Ansatz wird als vielversprechender Schritt in Richtung einer besseren Behandlung von Leberversagen angesehen.\n"
+     ]
+    }
+   ],
+   "source": [
+    "chain = LLMChain(llm=llm, prompt=prompt)\n",
+    "# \"text\" on the left is dynamic part of template; text on right is the text variable \n",
+    "summary = chain.run({\"text\": text, \"language\" : \" German\"})\n",
+    "print(summary)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8fed1a02-27c0-4392-ad23-79a16c06d466",
+   "metadata": {},
+   "source": [
+    "### Summarizing using StuffDocument Chain"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "id": "40133e9e-5a95-4823-91f7-1fb743d1d5b0",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Simplest method\n",
+    "# Stuff all text to be summarized in the prompt as context to be passed to LLM\n",
+    "# Only makes a single a call to the LLMs\n",
+    "# Only for smaller pieces of data\n",
+    "\n",
+    "from langchain import PromptTemplate\n",
+    "from langchain.chat_models import ChatOpenAI\n",
+    "from langchain.chains.summarize import load_summarize_chain\n",
+    "from langchain.docstore.document import Document\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "id": "2796e3da-ab2e-4ec2-be64-871079bb8c92",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "In this commencement speech, Steve Jobs shares three stories from his life. The first story is about connecting the dots. He dropped out of college but later realized that his calligraphy class had a significant impact on the design of the Macintosh computer. He emphasizes the importance of following curiosity and intuition, even if it doesn't seem practical at the time.\n",
+      "\n",
+      "The second story is about love and loss. Jobs talks about getting fired from Apple, the company he co-founded. However, this setback allowed him to start over and eventually led to the creation of Pixar and his return to Apple. He encourages the audience to find what they love and not settle for anything less.\n",
+      "\n",
+      "The third story is about death. Jobs shares his experience of being diagnosed with cancer and facing the possibility of death. He emphasizes the importance of living each day as if it were the last and following one's heart and intuition.\n",
+      "\n",
+      "In conclusion, Jobs advises the graduates to stay hungry and stay foolish, to continue seeking knowledge and taking risks. He encourages them to not be trapped by others' opinions and to have the courage to follow their own path.\n"
+     ]
+    }
+   ],
+   "source": [
+    "with open('sj.txt', encoding='utf-8') as f:\n",
+    "    text = f.read()\n",
+    "\n",
+    "llm = ChatOpenAI(temperature=0, model_name='gpt-3.5-turbo')\n",
+    "\n",
+    "# list with one element; text can be split into more than one doc if required\n",
+    "docs = [Document(page_content=text)]\n",
+    "\n",
+    "template = \"\"\"\n",
+    "Write a short 150 word summary of the following text:\n",
+    "TEXT: \"{text}\"\n",
+    "\"\"\"\n",
+    "\n",
+    "prompt = PromptTemplate(\n",
+    "    input_variables=[\"text\"],\n",
+    "    template=template\n",
+    ")\n",
+    "\n",
+    "chain = load_summarize_chain(\n",
+    "    llm,\n",
+    "    chain_type = \"stuff\",\n",
+    "    prompt = prompt,\n",
+    "    verbose = False\n",
+    ")\n",
+    "\n",
+    "output_summary = chain.run(docs)\n",
+    "print(output_summary)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "4778f18b-8e3f-403e-822d-ef1c96b2f05f",
+   "metadata": {},
+   "source": [
+    "### Summarizing large documents with map_reduce"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "id": "26e89e1c-279c-4fa7-ab5c-6a4f3a975a46",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# For large documents that exceed the token limit of the model \n",
+    "# Splits large docs into chunks, each summarized individually, then final summary of summaries\n",
+    "# The calls to the LLM on idnividual chunks ar independent can be parallelized\n",
+    "# Does multiple calls to an LLM\n",
+    "# Loses some info in the final sumamry "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "id": "b50cd499-09a3-4aa9-870a-29a347512ed2",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from langchain import PromptTemplate\n",
+    "from langchain.chat_models import ChatOpenAI\n",
+    "from langchain.chains.summarize import load_summarize_chain\n",
+    "from langchain.text_splitter import RecursiveCharacterTextSplitter"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 17,
+   "id": "93802933-2bf3-4f8a-bad9-b9c0c110e309",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "with open('sj.txt', encoding='utf-8') as f:\n",
+    "    text = f.read()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "id": "95630b01-d047-4a0c-9182-7480258e4f7d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=50)\n",
+    "chunks = text_splitter.create_documents([text])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "id": "0350654d-17a1-4e60-9ace-e0c6dd3340e3",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "2"
+      ]
+     },
+     "execution_count": 19,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "len(chunks)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "id": "0515031e-cf2b-4c3a-b3cb-e4bf8809361e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "chain = load_summarize_chain(\n",
+    "    llm, \n",
+    "    chain_type = \"map_reduce\",\n",
+    "    verbose = False\n",
+    ")\n",
+    "\n",
+    "output_summary = chain.run(chunks)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "id": "cf599145-f6da-41ea-a351-b5459ca96b4c",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Steve Jobs shares three stories from his life, including dropping out of college and how it influenced the design of the Macintosh computer, getting fired from Apple and finding success in new ventures, and his experience with cancer and the importance of living each day fully. He encourages the audience to follow their passions, not settle, and remember that life is short. The speaker also reflects on the inevitability of death, urges the audience to live their own lives, and mentions The Whole Earth Catalog as a source of inspiration. They conclude by wishing the audience well in their new beginnings.\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(output_summary)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "id": "ba8ad665-ba3b-4079-ab22-a1535735892a",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'Write a concise summary of the following:\\n\\n\\n\"{text}\"\\n\\n\\nCONCISE SUMMARY:'"
+      ]
+     },
+     "execution_count": 22,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# Two prompts:\n",
+    "# One for summarizing each chunk\n",
+    "chain.llm_chain.prompt.template"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "id": "125fbd9a-1432-4b33-a5a4-b8d3db9b21fb",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'Write a concise summary of the following:\\n\\n\\n\"{text}\"\\n\\n\\nCONCISE SUMMARY:'"
+      ]
+     },
+     "execution_count": 23,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# One for the overall summarization \n",
+    "chain.combine_document_chain.llm_chain.prompt.template"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "887bc261-9d93-481e-8504-14c102e0e46d",
+   "metadata": {},
+   "source": [
+    "### Map_reduce with Custom Prompts"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "id": "66fbb62a-2e69-4088-8b51-2636d53e5919",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# First prompt used to summarize each chunk called map prompt\n",
+    "\n",
+    "map_prompt = \"\"\"\n",
+    "Write a short summary of the following:\n",
+    "Text: `{text}`\n",
+    "CONCISE SUMMARY:\n",
+    "\"\"\"\n",
+    "map_prompt_template = PromptTemplate(\n",
+    "    input_variables = [\"text\"],\n",
+    "    template = map_prompt    \n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 25,
+   "id": "bbf265b0-a511-4660-96cb-10d2dbe7524b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "combine_prompt = \"\"\"\n",
+    "Write a short summary of the following text that covers the key points.\n",
+    "Add a title to the summary.\n",
+    "Start your summary with an INTRODUCTION PARAGRAPH that gives an overview of the topic FOLLOWED\n",
+    "by BULLET POINTS if possible AND end the summary with a CONCLUSION PHRASE.\n",
+    "Text: `{text}`\n",
+    "\n",
+    "\"\"\"\n",
+    "combine_prompt_template = PromptTemplate(\n",
+    "    input_variables =[\"text\"],\n",
+    "    template = combine_prompt\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "id": "3196df5f-430d-4bc2-8f7a-7f1c595211eb",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "chain = load_summarize_chain(\n",
+    "    llm=llm,\n",
+    "    chain_type = \"map_reduce\",\n",
+    "    map_prompt = map_prompt_template,\n",
+    "    combine_prompt = combine_prompt_template,\n",
+    "    verbose=False\n",
+    ")\n",
+    "\n",
+    "output_summary = chain.run(chunks)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "id": "1a13947e-1174-4612-bebb-01921dbd70e9",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Title: Steve Jobs' Speech on Life Lessons and Following Passion\n",
+      "\n",
+      "Introduction:\n",
+      "In this speech, Steve Jobs shares three stories from his life that highlight the importance of following one's passion and not settling for anything less. He discusses how dropping out of college, getting fired from Apple, and his experience with cancer shaped his perspective on life.\n",
+      "\n",
+      "Key Points:\n",
+      "- Story 1: Jobs dropped out of college and took a calligraphy class, which later influenced the design of the Macintosh computer.\n",
+      "- Story 2: Getting fired from Apple led Jobs to start new ventures and find success.\n",
+      "- Story 3: Jobs' experience with cancer reminded him of the importance of living each day to the fullest.\n",
+      "\n",
+      "- Jobs emphasizes the significance of following one's passion and not being influenced by others' opinions.\n",
+      "- The text discusses the inevitability of death and how it is a necessary part of life.\n",
+      "- The author shares a personal anecdote about The Whole Earth Catalog.\n",
+      "- The speech concludes by urging the audience to stay hungry and stay foolish as they embark on new beginnings.\n",
+      "\n",
+      "Conclusion:\n",
+      "Steve Jobs' speech highlights the importance of following one's passion, embracing new opportunities, and living life to the fullest. He encourages the audience to stay true to themselves and not be swayed by others' opinions.\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(output_summary)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "3c70150f-39ae-415c-a136-bb60cf182982",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# print(data[0].page_content) # Shows the content of the file "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "10f53374-1d92-4640-a1af-1448db716fc5",
+   "metadata": {},
+   "source": [
+    "### Summarizing using Langchain Agents "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "046bdd70-413a-4fed-95d3-a3308c294705",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from langchain.chat_models import ChatOpenAI\n",
+    "from langchain.agents import initialize_agent, Tool\n",
+    "from langchain.utilities import WikipediaAPIWrapper"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "6228aa36-27e0-494f-b509-8c726353238c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import os\n",
+    "import openai\n",
+    "openai.api_key = os.getenv(\"OPENAI_API_KEY\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "9ad25eb8-a7f7-4b18-be97-de9587685af7",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "llm = ChatOpenAI(temperature=0, model_name='gpt-3.5-turbo')\n",
+    "wikipedia = WikipediaAPIWrapper()\n",
+    "\n",
+    "# When constructing an agent, it needs to be provided with tools it can use\n",
+    "# Agents interact with the outside world through tools\n",
+    "# A tool has at least a name and a function\n",
+    "# The tool will call the run method of the wikipedia object \n",
+    "\n",
+    "tools = [\n",
+    "    Tool(\n",
+    "        name=\"Wikipedia\", \n",
+    "        func=wikipedia.run,\n",
+    "        description=\"Useful for when you need to get information from wikipedia about a single topic\"\n",
+    "    )\n",
+    "]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "1ffb8240-1284-41be-b05d-5a50fb3bf692",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Initialize agent\n",
+    "agent_executor = initialize_agent(tools, llm, agent='zero-shot-react-description', verbose=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "c1f29370-a50e-4ac9-b9b5-17d071a516fc",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      "\n",
+      "\u001b[1m> Entering new AgentExecutor chain...\u001b[0m\n",
+      "\u001b[32;1m\u001b[1;3mI should look up Singapore on Wikipedia to get a short summary.\n",
+      "Action: Wikipedia\n",
+      "Action Input: Singapore\u001b[0m\n",
+      "Observation: \u001b[36;1m\u001b[1;3mPage: Singapore\n",
+      "Summary: Singapore (  SING-(g)ə-por), officially the Republic of Singapore, is an island country and city-state in maritime Southeast Asia. It is located about one degree of latitude (137 kilometres or 85 miles) north of the equator, off the southern tip of the Malay Peninsula, bordering the Strait of Malacca to the west, the Singapore Strait to the south along with the Riau Islands in Indonesia, the South China Sea to the east, and the Straits of Johor along with the State of Johor in Malaysia to the north. The country's territory comprises one main island, 63 satellite islands and islets, and one outlying islet; the combined area of these has increased by approximately 25% since the country's independence as a result of extensive land reclamation projects. It has the second highest population density of any country in the world, although there are numerous green and recreational spaces as a result of urban planning. With a multicultural population and in recognition of the cultural identities of the major ethnic groups within the nation, Singapore has four official languages: English, Malay, Mandarin, and Tamil. English is the lingua franca, with its exclusive use in numerous public services. Multi-racialism is enshrined in the constitution and continues to shape national policies in education, housing, and politics.\n",
+      "Singapore's history dates back at least eight hundred years, having been a maritime emporium known as Temasek and subsequently a major constituent part of several successive thalassocratic empires. Its contemporary era began in 1819, when Stamford Raffles established Singapore as an entrepôt trading post of the British Empire. In 1867, the colonies in Southeast Asia were reorganised, and Singapore came under the direct control of Britain as part of the Straits Settlements. During World War II, Singapore was occupied by Japan in 1942 and returned to British control as a separate Crown colony following Japan's surrender in 1945. Singapore gained self-governance in 1959 and, in 1963, became part of the new federation of Malaysia, alongside Malaya, North Borneo, and Sarawak. Ideological differences, most notably the perceived encroachment of the egalitarian \"Malaysian Malaysia\" political ideology led by Lee Kuan Yew into the other constituent entities of Malaysia—at the perceived expense of the bumiputera and the policies of Ketuanan Melayu—eventually led to Singapore's expulsion from the federation two years later; Singapore became an independent sovereign country in 1965.\n",
+      "After early years of turbulence and despite lacking natural resources and a hinterland, the nation rapidly developed to become one of the Four Asian Tigers. With its growth based on international trade and economic globalisation, it integrated itself with the world economy through free trade with minimal-to-no trade barriers or tariffs, export-oriented industrialisation, and the large accumulation of received foreign direct investments, foreign exchange reserves, and assets held by sovereign wealth funds. As a highly developed country, it has the highest GDP per capita (PPP) in the world. Identified as a tax haven, Singapore is the only country in Asia with a AAA sovereign credit rating from all major rating agencies. It is a major aviation, financial, and maritime shipping hub and has consistently been ranked as one of the most expensive cities to live in for expatriates and foreign workers. Singapore ranks highly in key social indicators: education, healthcare, quality of life, personal safety, infrastructure, and housing, with a home-ownership rate of 88 percent. Singaporeans enjoy one of the longest life expectancies, fastest Internet connection speeds, lowest infant mortality rates, and lowest levels of corruption in the world.\n",
+      "Singapore is a unitary parliamentary republic with a Westminster system of unicameral parliamentary government, and its legal system is based on common law. While the country is a multi-party democracy\u001b[0m\n",
+      "Thought:\u001b[32;1m\u001b[1;3mI now know the final answer\n",
+      "Final Answer: Singapore is an island country and city-state in maritime Southeast Asia. It has a multicultural population and four official languages. It has a rich history and has rapidly developed to become one of the Four Asian Tigers. It is known for its international trade, economic globalization, and high GDP per capita. Singapore is also recognized for its high quality of life, infrastructure, and low levels of corruption. It is a unitary parliamentary republic with a Westminster system of government.\u001b[0m\n",
+      "\n",
+      "\u001b[1m> Finished chain.\u001b[0m\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Run agent with a question as an argument\n",
+    "output = agent_executor.run('Can you please provide a short summary of Singapore?')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "id": "be27d434-cf2d-435c-9ae4-725677884b9c",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Singapore is an island country and city-state in maritime Southeast Asia. It has a multicultural population and four official languages. It has a rich history and has rapidly developed to become one of the Four Asian Tigers. It is known for its international trade, economic globalization, and high GDP per capita. Singapore is also recognized for its high quality of life, infrastructure, and low levels of corruption. It is a unitary parliamentary republic with a Westminster system of government.\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(output)"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.2"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
